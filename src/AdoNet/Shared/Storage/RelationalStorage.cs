@@ -259,29 +259,17 @@ namespace Orleans.Tests.SqlUtils
             CommandBehavior commandBehavior,
             CancellationToken cancellationToken)
         {
-            using (var connection = DbConnectionFactory.CreateConnection(_invariantName, _connectionString))
-            {
-                await connection.OpenAsync(cancellationToken).ConfigureAwait(continueOnCapturedContext: false);
-                using (var command = connection.CreateCommand())
-                {
-                    parameterProvider?.Invoke(command);
-                    command.CommandText = query;
+            await using var dataSource = DbConnectionFactory.CreateDataSource(_invariantName, _connectionString);
+            await using var command = dataSource.CreateCommand(query);
 
-                    _databaseCommandInterceptor.Intercept(command);
+            _databaseCommandInterceptor.Intercept(command);
 
-                    Task<Tuple<IEnumerable<TResult>, int>> ret;
-                    if (_isSynchronousAdoNetImplementation)
-                    {
-                        ret = Task.Run(() => executor(command, selector, commandBehavior, cancellationToken), cancellationToken);
-                    }
-                    else
-                    {
-                        ret = executor(command, selector, commandBehavior, cancellationToken);
-                    }
+            Task<Tuple<IEnumerable<TResult>, int>> ret;
+            ret = _isSynchronousAdoNetImplementation
+                ? Task.Run(() => executor(command, selector, commandBehavior, cancellationToken), cancellationToken)
+                : executor(command, selector, commandBehavior, cancellationToken);
 
-                    return await ret.ConfigureAwait(continueOnCapturedContext: false);
-                }
-            }
+            return await ret.ConfigureAwait(continueOnCapturedContext: false);
         }
 
 

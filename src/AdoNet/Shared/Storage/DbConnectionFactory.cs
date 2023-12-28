@@ -97,6 +97,7 @@ namespace Orleans.Tests.SqlUtils
             }
         }
 
+        [Obsolete("Better implementation")]
         public static DbConnection CreateConnection(string invariantName, string connectionString)
         {
             if (string.IsNullOrWhiteSpace(invariantName))
@@ -119,6 +120,29 @@ namespace Orleans.Tests.SqlUtils
 
             connection.ConnectionString = connectionString;
             return connection;
+        }
+
+        public static DbDataSource CreateDataSource(string invariantName, string connectionString)
+        {
+            if (string.IsNullOrWhiteSpace(invariantName))
+            {
+                throw new ArgumentNullException(nameof(invariantName));
+            }
+
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                throw new ArgumentNullException(nameof(connectionString));
+            }
+
+            var factory = factoryCache.GetOrAdd(invariantName, GetFactory).Factory;
+            var dataSource = factory.CreateDataSource(connectionString);
+
+            if (dataSource is null)
+            {
+                throw new InvalidOperationException($"Database provider factory: '{invariantName}' did not return a data source object.");
+            }
+
+            return dataSource;
         }
 
         private class CachedFactory
